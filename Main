@@ -1,0 +1,379 @@
+#include <EEPROM.h>
+
+
+#define LedPin_1  3
+#define LedPin_2  5
+#define LedPin_3  6
+#define LedPin_4  9
+#define LedPin_5  10
+#define LedPin_6  11
+  //analogWrite(LedPin_1, 1000);
+#define Pump_1  7
+#define Pump_2  2
+#define Button_1 12
+#define Button_2 13
+
+int Helligkeit_Leds = 25; // Helligkeit von 0 bis 255
+int Led_anzeit = 5000; // wie lange die leds leuchten, nachdem der knopf gedrückt wurde
+int Intervall_1_Zeit = 10000; // in Ms --> Einmal am Tag
+int Intervall_2_Zeit = 20000; //
+int Intervall_3_Zeit = 30000;//
+int pumpen_zeit = 2000; // Wie lange die Pumpe an ist
+int animation_zeit = 200; // Wenn die pumpe an ist , wie schnell das led licht läuft
+
+
+boolean Button1;
+boolean Button2;
+
+int status_Modus1;
+int status_Modus2;
+unsigned long zeitstempel;
+
+bool blocker_animation;
+int zaehler;
+
+
+// Für die Intervalle
+boolean blocker_Intervall_1 = false;
+boolean blocker_Intervall_2 = false;
+boolean blocker_Intervall_3 = false;
+
+
+
+
+
+
+
+
+void setup() {
+Serial.begin(9600);
+pinMode(Pump_1,OUTPUT);
+pinMode(Pump_2,OUTPUT);
+pinMode(Button_1,INPUT_PULLUP);  
+pinMode(Button_2,INPUT_PULLUP);  
+
+
+  // put your setup code here, to run once:
+
+}
+
+
+void buttonReader(){ // Fragt Button1 1 und Button2 nach true oder false 
+  
+  if(digitalRead(Button_1) == true){
+    Button1 =false;
+  }   
+  else{
+    Button1 =true;
+    //Serial.println("Druck - 1");
+    } 
+
+
+  if(digitalRead(Button_2) == true){
+  Button2 =false;
+  } 
+  else{
+    Button2 =true;
+    //Serial.println("Druck - 2");
+    } 
+  }
+
+  
+
+  
+void Led_anzeige(int leiste1,int leiste2){ // 0 == aus dann 1-3 an  // ist für die steuerung der Leds da
+
+if(leiste1 ==0){
+  //Serial.println("Licht 1 aus");
+   analogWrite(LedPin_1,0);
+   analogWrite(LedPin_2,0);
+   analogWrite(LedPin_3,0);
+}
+if(leiste1 ==1 ){
+   analogWrite(LedPin_1,Helligkeit_Leds);
+   analogWrite(LedPin_2,0);
+   analogWrite(LedPin_3,0);
+}
+if(leiste1 ==2){
+   analogWrite(LedPin_1,Helligkeit_Leds);
+   analogWrite(LedPin_2,Helligkeit_Leds);
+   analogWrite(LedPin_3,0);
+}
+if(leiste1 ==3){
+   analogWrite(LedPin_1,Helligkeit_Leds);
+   analogWrite(LedPin_2,Helligkeit_Leds);
+   analogWrite(LedPin_3,Helligkeit_Leds);
+}
+// - - - - - - - - - - -
+if(leiste2 ==0){
+   analogWrite(LedPin_4,0);
+   analogWrite(LedPin_5,0);
+   analogWrite(LedPin_6,0);
+}
+  
+if(leiste2 ==1){
+   analogWrite(LedPin_4,Helligkeit_Leds);
+   analogWrite(LedPin_5,0);
+   analogWrite(LedPin_6,0);
+}
+if(leiste2 ==2){
+   analogWrite(LedPin_4,Helligkeit_Leds);
+   analogWrite(LedPin_5,Helligkeit_Leds);
+   analogWrite(LedPin_6,0);
+}
+if(leiste2 ==3){
+   analogWrite(LedPin_4,Helligkeit_Leds);
+   analogWrite(LedPin_5,Helligkeit_Leds);
+   analogWrite(LedPin_6,Helligkeit_Leds);
+}
+}
+
+int Modus1(){ // ist für den Modus der ersten Led Reihe zuständig und für die steuerung der Led anzeige
+  status_Modus1 = EEPROM.read(1);
+  buttonReader();
+  
+  if(Button1 == true){
+    zeitstempel = millis()+ Led_anzeit;
+    status_Modus1 ++;
+    if(status_Modus1 >3){
+      status_Modus1 = 0;
+    }
+    
+    
+    EEPROM.write(1,status_Modus1);
+    Led_anzeige(status_Modus1,status_Modus2);
+  }
+  
+  while(Button1 == true){
+    buttonReader();
+  }
+  //Serial.println(zeitstempel);
+  if(millis()>zeitstempel){
+  Led_anzeige(0,0);
+  }
+
+  return EEPROM.read(1);
+}
+
+int Modus2(){  // ist für den Modus der zweiten Led Reihe zuständig und für die steuerung der Led anzeige
+  status_Modus2 = EEPROM.read(2);
+  buttonReader();
+  
+  if(Button2 == true){
+    zeitstempel = millis()+ Led_anzeit;
+    status_Modus2 ++;
+    if(status_Modus2 >3){
+      status_Modus2 = 0;
+    }
+    
+    
+    EEPROM.write(2,status_Modus2);
+    Led_anzeige(status_Modus1,status_Modus2);
+  }
+  
+  while(Button2 == true){
+    buttonReader();
+  }
+  //Serial.println(zeitstempel);
+  if(millis()>zeitstempel){
+  Led_anzeige(0,0);
+  }
+  return EEPROM.read(2);
+}
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool Intervall_1(){ // gibt alle Intervall_1_Zeit Sekuunden einen impuls als return
+  unsigned long Mod1_zeitstempel;
+
+  if(blocker_Intervall_1 == false){
+    Mod1_zeitstempel = millis() + Intervall_1_Zeit;
+    blocker_Intervall_1 = true;
+  }
+  if(millis() > Mod1_zeitstempel){
+    blocker_Intervall_1 = false;
+    return true;
+  }
+  else{
+    return false;
+  }
+}
+
+bool Intervall_2(){ // gibt alle Intervall_2_Zeit Sekuunden einen impuls als return
+  unsigned long Mod2_zeitstempel;
+
+  if(blocker_Intervall_2 == false){
+    Mod2_zeitstempel = millis() + Intervall_2_Zeit;
+    blocker_Intervall_2 = true;
+  }
+  if(millis() > Mod2_zeitstempel){
+    blocker_Intervall_2 = false;
+    return true;
+  }
+  else{
+    return false;
+  }
+}
+
+bool Intervall_3(){ // gibt alle Intervall_3_Zeit Sekuunden einen impuls als return
+  unsigned long Mod3_zeitstempel;
+
+  if(blocker_Intervall_3 == false){
+    Mod3_zeitstempel = millis() + Intervall_3_Zeit;
+    blocker_Intervall_3 = true;
+  }
+  if(millis() > Mod3_zeitstempel){
+    blocker_Intervall_3 = false;
+    return true;
+  }
+  else{
+    return false;
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Pumpensteuerung(bool pumpe1,bool pumpe2){ // steuert die Pumpen
+
+unsigned long zeit_pumpensteuerung = millis()+ pumpen_zeit;
+blocker_animation = false;
+zaehler= 0 ;
+
+while(zeit_pumpensteuerung> millis()){
+  //Serial.println(zeit_pumpensteuerung);
+  //Serial.println(millis());
+    animation(pumpe1,pumpe2);
+
+  if(pumpe1 == true){
+    digitalWrite(Pump_1,HIGH);
+  }
+  if(pumpe2 == true){
+    digitalWrite(Pump_2,HIGH); 
+  }
+}
+digitalWrite(Pump_1,LOW);
+digitalWrite(Pump_2,LOW);
+
+}
+void zeitschaltuhr(){  // Läast die Pumpen je nach intervall für x sekunden laufen
+  if(Intervall_1() == true){
+  Serial.println("Intervall-1");
+  if(Modus1() == 1 && Modus2() == 1){
+    Serial.println("1.1");
+    Pumpensteuerung(true,true);
+  }
+  if(Modus1() == 1 && Modus2() != 1){
+    Serial.println("1.2");
+    Pumpensteuerung(true,false);
+  }
+  if(Modus1() != 1 && Modus2() == 1){
+    Serial.println("1.3");
+    Pumpensteuerung(false,true);
+  } 
+}
+if(Intervall_2() == true){
+  Serial.println("Intervall-2");
+  if(Modus1() == 2 && Modus2() == 2){
+    Serial.println("2.1");
+    Pumpensteuerung(true,true);
+  }
+  if(Modus1() == 2 && Modus2() != 2){
+    Serial.println("2.2");
+    Pumpensteuerung(true,false);
+  }
+  if(Modus1() != 2 && Modus2() == 2){
+    Serial.println("2.3");
+    Pumpensteuerung(false,true);
+  }
+}
+if(Intervall_3() == true){
+  Serial.println("Intervall-3");
+  if(Modus1() == 3 && Modus2() == 3){
+    Serial.println("3.1");
+    Pumpensteuerung(true,true);
+  }
+  if(Modus1() == 3 && Modus2() != 3){
+    Serial.println("3.2");
+    Pumpensteuerung(true,false);
+  }
+  if(Modus1() != 3 && Modus2() == 3){
+    Serial.println("3.3");
+    Pumpensteuerung(false,true);
+  }
+}
+}
+
+
+ void animation(bool pumpe1,bool pumpe2){
+  unsigned long x;
+  
+  if(blocker_animation==false){
+  x = millis()+ animation_zeit;
+  blocker_animation = true; 
+  }
+
+  if(millis()>x){
+    zaehler ++;
+    blocker_animation =false;
+  }
+  if (zaehler >3){
+      zaehler = 0;
+    }
+  //Serial.println(zaehler);
+    if(zaehler==0){
+        analogWrite(LedPin_1,0);
+        analogWrite(LedPin_2,0);
+        analogWrite(LedPin_3,0);
+        analogWrite(LedPin_4,0);
+        analogWrite(LedPin_5,0);
+        analogWrite(LedPin_6,0);
+    }
+
+    if(pumpe1==true){
+      if(zaehler==1){
+        analogWrite(LedPin_1,Helligkeit_Leds);
+      }
+      if(zaehler==2){
+        analogWrite(LedPin_1,Helligkeit_Leds);
+        analogWrite(LedPin_2,Helligkeit_Leds);
+      }
+      if(zaehler==3){
+        analogWrite(LedPin_1,Helligkeit_Leds);
+        analogWrite(LedPin_2,Helligkeit_Leds);
+        analogWrite(LedPin_3,Helligkeit_Leds);
+      }
+    }
+
+    if(pumpe2==true){
+      if(zaehler==1){
+        analogWrite(LedPin_4,Helligkeit_Leds);
+      }
+      if(zaehler==2){
+        analogWrite(LedPin_4,Helligkeit_Leds);
+        analogWrite(LedPin_5,Helligkeit_Leds);
+      }
+      if(zaehler==3){
+        analogWrite(LedPin_4,Helligkeit_Leds);
+        analogWrite(LedPin_5,Helligkeit_Leds);
+        analogWrite(LedPin_6,Helligkeit_Leds);
+      }
+    }
+}
+
+
+
+void loop() {
+  Modus1(); // gibt den modus zurück
+  Modus2();
+  zeitschaltuhr();
+  
+  //Pumpensteuerung(false,false); // funktion darf nur einmal aufgerufen werden
+  //Intervall_1()
+  //Intervall_2() // gibt alle x sekunden true als return wert zurück
+  //Intervall_3()
+  //Pumpensteuerung(true,false); // schaltet pumpe 1 und pumpe 2 für x sekunden ein
+
+}
+  
